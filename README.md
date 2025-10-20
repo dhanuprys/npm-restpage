@@ -159,8 +159,9 @@ nginx_refresh_cmd: sudo /usr/sbin/nginx -s reload
 nginx_refresh_cmd: /usr/local/bin/nginx -s reload
 ```
 
-**Note:** The application automatically generates the corresponding test command by replacing `-s reload` with `-s t`. For example:
-- `docker exec app /usr/sbin/nginx -s reload` → `docker exec app /usr/sbin/nginx -s t`
+**Note:** The application automatically generates the corresponding test command by replacing `-s reload` with `-t`. For example:
+
+- `docker exec app /usr/sbin/nginx -s reload` → `docker exec app /usr/sbin/nginx -t`
 - `systemctl reload nginx` → `systemctl reload nginx -t`
 
 ### Service Configuration

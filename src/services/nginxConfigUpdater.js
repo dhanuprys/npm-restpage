@@ -40,7 +40,9 @@ class NginxConfigUpdater {
     const testParts = [...parts];
     const reloadIndex = testParts.findIndex(part => part === '-s');
     if (reloadIndex !== -1 && testParts[reloadIndex + 1] === 'reload') {
-      testParts[reloadIndex + 1] = 't';
+      // Remove the -s reload part and add -t
+      testParts.splice(reloadIndex, 2);
+      testParts.push('-t');
     } else {
       // If no -s reload found, append -t
       testParts.push('-t');
