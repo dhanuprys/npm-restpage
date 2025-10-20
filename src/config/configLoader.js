@@ -87,10 +87,20 @@ class ConfigLoader {
       throw new Error(`Service '${serviceName}' if_failed missing host or port`);
     }
 
+    // Validate if_failed scheme if provided
+    if (service.if_failed.scheme && !['http', 'https'].includes(service.if_failed.scheme)) {
+      throw new Error(`Service '${serviceName}' if_failed scheme must be 'http' or 'https'`);
+    }
+
     // If if_success is provided, validate it
     if (service.if_success) {
       if (!service.if_success.host || !service.if_success.port) {
         throw new Error(`Service '${serviceName}' if_success missing host or port`);
+      }
+
+      // Validate if_success scheme if provided
+      if (service.if_success.scheme && !['http', 'https'].includes(service.if_success.scheme)) {
+        throw new Error(`Service '${serviceName}' if_success scheme must be 'http' or 'https'`);
       }
     }
   }

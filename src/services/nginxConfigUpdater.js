@@ -58,9 +58,11 @@ class NginxConfigUpdater {
    * @param {string} newHost - New forward host
    * @param {number} oldPort - Current forward port
    * @param {number} newPort - New forward port
+   * @param {string} oldScheme - Current forward scheme
+   * @param {string} newScheme - New forward scheme
    * @returns {Promise<boolean>} Success status
    */
-  async updateProxyConfig(proxyId, oldHost, newHost, oldPort, newPort) {
+  async updateProxyConfig(proxyId, oldHost, newHost, oldPort, newPort, oldScheme, newScheme) {
     const configPath = path.join(this.nginxConfDir, `${proxyId}.conf`);
 
     try {
@@ -84,7 +86,9 @@ class NginxConfigUpdater {
         oldHost,
         newHost,
         oldPort,
-        newPort
+        newPort,
+        oldScheme,
+        newScheme
       );
 
       // Write updated configuration
@@ -97,6 +101,8 @@ class NginxConfigUpdater {
         newHost,
         oldPort,
         newPort,
+        oldScheme,
+        newScheme,
       });
 
       return true;
@@ -114,6 +120,7 @@ class NginxConfigUpdater {
    * Replace upstream configuration in Nginx config content
    *
    * Supports Nginx Proxy Manager format:
+   * - set $forward_scheme http;
    * - set $server "192.168.11.2";
    * - set $port 8010;
    *
@@ -125,10 +132,18 @@ class NginxConfigUpdater {
    * @param {string} newHost - New host
    * @param {number} oldPort - Current port
    * @param {number} newPort - New port
+   * @param {string} oldScheme - Current scheme
+   * @param {string} newScheme - New scheme
    * @returns {string} Updated config content
    */
-  replaceUpstreamConfig(content, oldHost, newHost, oldPort, newPort) {
+  replaceUpstreamConfig(content, oldHost, newHost, oldPort, newPort, oldScheme, newScheme) {
     let updatedContent = content;
+
+    // Handle Nginx Proxy Manager format: set $forward_scheme http;
+    if (oldScheme && newScheme && oldScheme !== newScheme) {
+      const schemeSetPattern = new RegExp(`(set\\s+\\$forward_scheme\\s*)${oldScheme}(\\s*;)`, 'g');
+      updatedContent = updatedContent.replace(schemeSetPattern, `$1${newScheme}$2`);
+    }
 
     // Handle Nginx Proxy Manager format: set $server "192.168.11.2";
     const serverSetPattern = new RegExp(

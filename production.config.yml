@@ -26,6 +26,7 @@ services:
     if_failed:
       host: 10.0.1.11
       port: 8000
+      scheme: https # Optional: http or https
 
   # Production API service
   api:
@@ -37,6 +38,7 @@ services:
     if_failed:
       host: 10.0.2.11
       port: 3000
+      scheme: https # Optional: http or https
 
   # Production web service
   web:
@@ -48,3 +50,4 @@ services:
     if_failed:
       host: 10.0.3.11
       port: 80
+      scheme: http # Optional: http or https

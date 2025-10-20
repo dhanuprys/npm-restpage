@@ -63,13 +63,14 @@ class DatabaseManager {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT id, domain_names, forward_host, forward_port, forward_scheme, enabled
-        FROM proxy_host 
-        WHERE domain_names = ? AND is_deleted = 0
+        FROM proxy_host
+        WHERE domain_names LIKE ? AND is_deleted = 0
       `;
 
-      const domainJson = JSON.stringify([domain]);
+      // Format domain as JSON array pattern: ["domain.com"]
+      const domainPattern = `%["${domain}"]%`;
 
-      this.db.get(query, [domainJson], (err, row) => {
+      this.db.get(query, [domainPattern], (err, row) => {
         if (err) {
           this.logger.error(`Database query failed: ${err.message}`, 'database', { domain });
           reject(err);
@@ -81,6 +82,7 @@ class DatabaseManager {
             id: row.id,
             forward_host: row.forward_host,
             forward_port: row.forward_port,
+            forward_scheme: row.forward_scheme,
           });
           resolve(row);
         }
@@ -93,29 +95,47 @@ class DatabaseManager {
    * @param {number} id - Proxy host ID
    * @param {string} newHost - New forward host
    * @param {number} newPort - New forward port
+   * @param {string} [newScheme] - New forward scheme (optional)
    * @returns {Promise<boolean>} Success status
    */
-  async updateProxyHost(id, newHost, newPort) {
+  async updateProxyHost(id, newHost, newPort, newScheme = null) {
     return new Promise((resolve, reject) => {
-      const query = `
-        UPDATE proxy_host 
-        SET forward_host = ?, forward_port = ?, modified_on = datetime('now')
-        WHERE id = ?
-      `;
+      let query, params;
 
-      this.db.run(query, [newHost, newPort, id], err => {
+      if (newScheme) {
+        query = `
+          UPDATE proxy_host
+          SET forward_host = ?, forward_port = ?, forward_scheme = ?, modified_on = datetime('now')
+          WHERE id = ?
+        `;
+        params = [newHost, newPort, newScheme, id];
+      } else {
+        query = `
+          UPDATE proxy_host
+          SET forward_host = ?, forward_port = ?, modified_on = datetime('now')
+          WHERE id = ?
+        `;
+        params = [newHost, newPort, id];
+      }
+
+      this.db.run(query, params, err => {
         if (err) {
           this.logger.error(`Failed to update proxy host: ${err.message}`, 'database', {
             id,
             newHost,
             newPort,
+            newScheme,
           });
           reject(err);
         } else if (this.changes === 0) {
           this.logger.warn(`No rows updated for proxy host ID: ${id}`, 'database');
           resolve(false);
         } else {
-          this.logger.info(`Updated proxy host ID ${id}: ${newHost}:${newPort}`, 'database');
+          const schemeInfo = newScheme ? ` (scheme: ${newScheme})` : '';
+          this.logger.info(
+            `Updated proxy host ID ${id}: ${newHost}:${newPort}${schemeInfo}`,
+            'database'
+          );
           resolve(true);
         }
       });
@@ -130,7 +150,7 @@ class DatabaseManager {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT id, domain_names, forward_host, forward_port, forward_scheme
-        FROM proxy_host 
+        FROM proxy_host
         WHERE enabled = 1 AND is_deleted = 0
       `;
 

@@ -63,9 +63,10 @@ class ServiceManager {
         originalConfig = {
           host: proxyHost.forward_host,
           port: proxyHost.forward_port,
+          scheme: proxyHost.forward_scheme,
         };
         this.logger.debug(
-          `Found original config for ${serviceName}: ${originalConfig.host}:${originalConfig.port}`,
+          `Found original config for ${serviceName}: ${originalConfig.scheme}://${originalConfig.host}:${originalConfig.port}`,
           'service-manager'
         );
       } else {
@@ -84,6 +85,7 @@ class ServiceManager {
         consecutiveFailures: 0,
         currentHost: null,
         currentPort: null,
+        currentScheme: null,
       });
 
       this.logger.debug(`Initialized service state: ${serviceName}`, 'service-manager');
@@ -235,7 +237,8 @@ class ServiceManager {
   needsConfigurationUpdate(serviceState, targetConfig) {
     return (
       serviceState.currentHost !== targetConfig.host ||
-      serviceState.currentPort !== targetConfig.port
+      serviceState.currentPort !== targetConfig.port ||
+      serviceState.currentScheme !== targetConfig.scheme
     );
   }
 
@@ -260,11 +263,13 @@ class ServiceManager {
 
       const oldHost = serviceState.currentHost || proxyHost.forward_host;
       const oldPort = serviceState.currentPort || proxyHost.forward_port;
+      const oldScheme = serviceState.currentScheme || proxyHost.forward_scheme;
       const newHost = targetConfig.host;
       const newPort = targetConfig.port;
+      const newScheme = targetConfig.scheme || oldScheme; // Use target scheme or fallback to current
 
       this.logger.info(
-        `Updating configuration for ${serviceName}: ${oldHost}:${oldPort} → ${newHost}:${newPort}`,
+        `Updating configuration for ${serviceName}: ${oldScheme}://${oldHost}:${oldPort} → ${newScheme}://${newHost}:${newPort}`,
         serviceName
       );
 
@@ -274,7 +279,9 @@ class ServiceManager {
         oldHost,
         newHost,
         oldPort,
-        newPort
+        newPort,
+        oldScheme,
+        newScheme
       );
 
       if (!nginxUpdateSuccess) {
@@ -283,7 +290,12 @@ class ServiceManager {
       }
 
       // Update database
-      const dbUpdateSuccess = await this.database.updateProxyHost(proxyHost.id, newHost, newPort);
+      const dbUpdateSuccess = await this.database.updateProxyHost(
+        proxyHost.id,
+        newHost,
+        newPort,
+        newScheme
+      );
 
       if (!dbUpdateSuccess) {
         this.logger.error(`Failed to update database for ${serviceName}`, serviceName);
@@ -293,6 +305,7 @@ class ServiceManager {
       // Update service state
       serviceState.currentHost = newHost;
       serviceState.currentPort = newPort;
+      serviceState.currentScheme = newScheme;
 
       // Reload Nginx
       const nginxReloadSuccess = await this.nginxUpdater.reloadNginx();

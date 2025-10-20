@@ -175,6 +175,14 @@ Each service requires the following configuration:
 - `if_failed`: Fallback upstream server configuration when health check fails
 - `if_success`: **Optional** upstream server configuration when health check succeeds
 
+#### Scheme Support
+
+Both `if_success` and `if_failed` configurations now support an optional `scheme` property:
+
+- `scheme`: **Optional** forward scheme ('http' or 'https')
+- If not provided, the application will use the original scheme from the database
+- If provided, it will override the scheme when switching configurations
+
 #### Simplified Configuration Approach
 
 The application now uses a **simplified approach** that eliminates the need to configure `if_success` in most cases:
@@ -201,6 +209,7 @@ services:
     if_failed:
       host: 192.168.13.1
       port: 80
+      scheme: http # Optional: http or https
 ```
 
 **With Custom Success Configuration:**
@@ -216,9 +225,27 @@ services:
     if_success:
       host: 192.168.11.1
       port: 8000
+      scheme: https # Optional: http or https
     if_failed:
       host: 192.168.13.1
       port: 80
+      scheme: http # Optional: http or https
+```
+
+**Mixed Scheme Configuration:**
+
+```yaml
+services:
+  api:
+    domain: api.example.com
+    check: http://192.168.20.10:3000/health
+    interval: 3s
+    error_delay: 8s
+    # Use HTTPS for fallback, original config from database for success
+    if_failed:
+      host: 192.168.20.11
+      port: 3000
+      scheme: https # Fallback uses HTTPS
 ```
 
 ## Architecture

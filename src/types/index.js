@@ -12,9 +12,11 @@
  * @property {Object} [if_success] - Upstream server config when health check succeeds (optional, uses original config from database if not provided)
  * @property {string} [if_success.host] - Host when successful
  * @property {number} [if_success.port] - Port when successful
+ * @property {string} [if_success.scheme] - Scheme when successful ('http' or 'https', optional)
  * @property {Object} if_failed - Fallback upstream server config when health check fails
  * @property {string} if_failed.host - Host when failed
  * @property {number} if_failed.port - Port when failed
+ * @property {string} [if_failed.scheme] - Scheme when failed ('http' or 'https', optional)
  */
 
 /**
