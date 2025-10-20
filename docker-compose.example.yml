@@ -1,0 +1,73 @@
+# Docker Compose Example for Nginx Proxy Manager Switcher
+# This is a complete example that you can customize for your environment
+
+version: '3.8'
+
+services:
+  nginx-proxy-manager-switcher:
+    image: dhanuprys/npm-restpage:latest
+    container_name: nginx-switcher
+    restart: unless-stopped
+
+    # Configuration file
+    command: ['--config', 'production.config.yml']
+
+    # User and permissions (adjust UID:GID as needed)
+    # Check your user ID: id -u
+    # Check your group ID: id -g
+    user: '1000:1000'
+
+    # Volumes
+    volumes:
+      # Docker socket for executing nginx commands
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # NPM data directory (adjust path to your NPM data location)
+      # Common locations:
+      # - /opt/npm/data:/data:rw
+      # - ./npm-data:/data:rw
+      # - /var/lib/docker/volumes/npm_data/_data:/data:rw
+      - /opt/npm/data:/data:rw
+
+      # Configuration file
+      - ./production.config.yml:/app/production.config.yml:ro
+
+      # Backup directory (optional)
+      - ./backups:/app/backups:rw
+
+      # Logs directory (optional)
+      - ./logs:/app/logs:rw
+
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - TZ=UTC
+      # Uncomment to enable debug logging
+      # - LOG_LEVEL=debug
+
+    # Health check
+    healthcheck:
+      test: ['CMD', 'node', '-e', "console.log('Health check passed')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Logging configuration
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+    # Network (optional - uncomment if you need specific network)
+    # networks:
+    #   - npm-network
+
+    # Dependencies (optional - uncomment if you want to wait for NPM)
+    # depends_on:
+    #   - nginx-proxy-manager
+# Uncomment if you need a specific network
+# networks:
+#   npm-network:
+#     external: true

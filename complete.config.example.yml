@@ -1,0 +1,175 @@
+# Nginx Proxy Manager Switcher - Complete Configuration Example
+# Copy this file and customize it for your environment
+
+# =============================================================================
+# GLOBAL SETTINGS
+# =============================================================================
+
+# Path to Nginx Proxy Manager's SQLite database
+# Default NPM location: /data/database.db
+sqlite_file: /data/database.db
+
+# Directory where Nginx proxy configurations are stored
+# Default NPM location: /data/nginx/proxy_host
+nginx_conf_dir: /data/nginx/proxy_host
+
+# Path for the application log file
+log_file: /var/log/host_switcher.log
+
+# Command to reload Nginx configuration
+# Choose the appropriate command for your setup:
+nginx_refresh_cmd: docker exec nginx-proxy-manager-app-1 /usr/sbin/nginx -s reload
+
+# Alternative nginx_refresh_cmd examples:
+# nginx_refresh_cmd: /usr/sbin/nginx -s reload                    # Direct nginx
+# nginx_refresh_cmd: systemctl reload nginx                     # Systemd
+# nginx_refresh_cmd: docker-compose exec nginx nginx -s reload  # Docker Compose
+# nginx_refresh_cmd: kubectl exec nginx-pod -- nginx -s reload  # Kubernetes
+
+# Directory for storing proxy_host backups (optional, defaults to './backups')
+backup_dir: /app/backups
+
+# =============================================================================
+# SERVICE DEFINITIONS
+# =============================================================================
+
+services:
+  # Example 1: SSO Service with minimal configuration
+  sso:
+    domain: sso.example.com
+    # Health check URL - must return 2xx status code
+    check: http://192.168.11.1:8000/health
+    # Time between health checks when service is UP
+    interval: 2s
+    # Time to wait before retrying after a check fails
+    error_delay: 5s
+    # Fallback configuration (required)
+    if_failed:
+      host: 192.168.13.1
+      port: 80
+      scheme: http # Optional: http or https
+
+  # Example 2: API Service with custom success configuration
+  api:
+    domain: api.example.com
+    check: http://192.168.20.10:3000/health
+    interval: 3s
+    error_delay: 8s
+    # Custom success configuration (optional)
+    if_success:
+      host: 192.168.20.10
+      port: 3000
+      scheme: https
+    # Fallback configuration
+    if_failed:
+      host: 192.168.20.11
+      port: 3000
+      scheme: https
+
+  # Example 3: Web Service with different schemes
+  web:
+    domain: www.example.com
+    check: http://192.168.30.5:80/health
+    interval: 5s
+    error_delay: 10s
+    # Uses original config from database for success
+    # Only configure fallback
+    if_failed:
+      host: 192.168.30.6
+      port: 80
+      scheme: http
+
+  # Example 4: Database Service
+  database:
+    domain: db.example.com
+    check: http://192.168.40.10:5432/health
+    interval: 10s
+    error_delay: 30s
+    if_failed:
+      host: 192.168.40.11
+      port: 5432
+      scheme: http
+
+  # Example 5: Microservice with custom intervals
+  microservice:
+    domain: micro.example.com
+    check: http://192.168.50.10:8080/actuator/health
+    interval: 1s # Very frequent checks
+    error_delay: 3s # Quick failover
+    if_failed:
+      host: 192.168.50.11
+      port: 8080
+      scheme: https
+# =============================================================================
+# CONFIGURATION NOTES
+# =============================================================================
+
+# 1. DOMAIN NAMES:
+#    - Must exactly match the domain names configured in Nginx Proxy Manager
+#    - Can be single domain or multiple domains (comma-separated in NPM)
+
+# 2. HEALTH CHECKS:
+#    - Must return HTTP 2xx status code for success
+#    - Any other status code is considered a failure
+#    - Use endpoints like /health, /status, /ping, /ready, etc.
+
+# 3. INTERVALS:
+#    - Format: number + unit (s=seconds, m=minutes, h=hours)
+#    - Examples: "2s", "30s", "1m", "5m", "1h"
+#    - Shorter intervals = faster detection but more load
+
+# 4. ERROR DELAYS:
+#    - Time to wait before retrying after a failure
+#    - Should be longer than interval to avoid rapid retries
+#    - Examples: "5s", "30s", "1m", "2m"
+
+# 5. SCHEME SUPPORT:
+#    - Optional 'scheme' property in if_success and if_failed
+#    - Valid values: 'http' or 'https'
+#    - If not provided, uses original scheme from database
+
+# 6. SIMPLIFIED APPROACH:
+#    - if_success is optional - uses original config from database
+#    - Only configure if_failed in most cases
+#    - Reduces configuration complexity
+
+# =============================================================================
+# DOCKER COMPOSE INTEGRATION
+# =============================================================================
+
+# When using with Docker Compose, ensure these volumes are mounted:
+# volumes:
+#   - /var/run/docker.sock:/var/run/docker.sock:ro  # For nginx commands
+#   - /path/to/npm/data:/data:rw                    # NPM data directory
+#   - ./this-config.yml:/app/production.config.yml:ro  # This config file
+#   - ./backups:/app/backups:rw                     # Backup directory
+#   - ./logs:/app/logs:rw                          # Log directory
+
+# =============================================================================
+# PRODUCTION RECOMMENDATIONS
+# =============================================================================
+
+# 1. Use specific Node.js version in Dockerfile:
+#    FROM node:20-slim
+
+# 2. Set proper user permissions:
+#    user: "1000:1000"  # Adjust UID:GID as needed
+
+# 3. Enable health checks:
+#    healthcheck:
+#      test: ["CMD", "node", "-e", "console.log('Health check passed')"]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 3
+
+# 4. Set up log rotation:
+#    logging:
+#      driver: "json-file"
+#      options:
+#        max-size: "10m"
+#        max-file: "3"
+
+# 5. Use environment variables for sensitive data:
+#    environment:
+#      - NODE_ENV=production
+#      - TZ=UTC

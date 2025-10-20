@@ -2,211 +2,136 @@
 
 An extended application for Nginx Proxy Manager that automatically switches proxy hosts and ports based on health checks. This application monitors configured services and automatically updates Nginx configurations when services become unavailable or recover.
 
-## Features
+## 🚀 Quick Start with Docker
 
-- **Automatic Health Monitoring**: Performs HTTP health checks on configured services
-- **Dynamic Proxy Switching**: Automatically switches between primary and fallback upstream servers
-- **SQLite Integration**: Reads and updates Nginx Proxy Manager database
-- **Nginx Configuration Management**: Updates and reloads Nginx configurations
-- **Comprehensive Logging**: Colorful console and file logging with detailed event tracking
-- **Clean Architecture**: Modular design with separation of concerns
-- **Error Handling**: Robust error handling and recovery mechanisms
+The easiest way to use this application is with Docker. The image includes all dependencies and is ready to run.
 
-## Installation
+### Prerequisites
 
-1. Install Node.js dependencies:
+- Docker and Docker Compose installed
+- Access to Nginx Proxy Manager's database and configuration files
+- Docker socket access for executing nginx commands
 
-```bash
-npm install
-```
+### Basic Usage
 
-2. Configure your services in `config_template.yml`:
+1. **Create a configuration file:**
 
 ```yaml
+# production.config.yml
 sqlite_file: /data/database.db
 nginx_conf_dir: /data/nginx/proxy_host
 log_file: /var/log/host_switcher.log
+backup_dir: /app/backups
+
+# Command to reload Nginx configuration
+nginx_refresh_cmd: docker exec nginx-proxy-manager-app-1 /usr/sbin/nginx -s reload
 
 services:
   sso:
     domain: sso.example.com
-    check: http://192.168.11.1:8000/up
+    check: http://192.168.11.1:8000/health
     interval: 2s
     error_delay: 5s
-    if_success:
-      host: 192.168.11.1
-      port: 8000
     if_failed:
       host: 192.168.13.1
       port: 80
+      scheme: http
 ```
 
-3. Run the application:
+2. **Run with Docker:**
 
 ```bash
-# Use default configuration
-npm start
-
-# Use custom configuration file
-node src/index.js --config /path/to/your/config.yml
-
-# Short form
-node src/index.js -c ./my-config.yml
+docker run -d \
+  --name nginx-switcher \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v /path/to/npm/data:/data:rw \
+  -v ./production.config.yml:/app/production.config.yml:ro \
+  -v ./backups:/app/backups:rw \
+  dhanuprys/npm-restpage:latest
 ```
 
-### Command Line Options
+## 🐳 Docker Compose Setup
 
-The application supports several command-line options:
+For easier management, use Docker Compose:
+
+### Complete Docker Compose Example
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  nginx-proxy-manager-switcher:
+    image: dhanuprys/npm-restpage:latest
+    container_name: nginx-switcher
+    restart: unless-stopped
+
+    # Configuration
+    command: ['--config', 'production.config.yml']
+
+    # User and permissions
+    user: '1000:1000' # Adjust UID:GID as needed
+
+    # Volumes
+    volumes:
+      # Docker socket for executing nginx commands
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # NPM data directory (adjust path to your NPM data)
+      - /opt/npm/data:/data:rw
+
+      # Configuration file
+      - ./production.config.yml:/app/production.config.yml:ro
+
+      # Backup directory
+      - ./backups:/app/backups:rw
+
+      # Logs directory
+      - ./logs:/app/logs:rw
+
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - TZ=UTC
+
+    # Health check
+    healthcheck:
+      test: ['CMD', 'node', '-e', "console.log('Health check passed')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Logging
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+```
+
+### Start the Service
 
 ```bash
-node src/index.js [options]
+# Start the switcher
+docker-compose up -d
 
-Options:
-  -c, --config <file>    Path to configuration file (default: config_template.yml)
-  -h, --help            Display help message
-  -v, --version         Display version information
+# View logs
+docker-compose logs -f nginx-proxy-manager-switcher
+
+# Stop the service
+docker-compose down
 ```
 
-### Configuration File Examples
-
-**Default Configuration:**
-
-```bash
-node src/index.js
-# Uses config_template.yml
-```
-
-**Custom Configuration:**
-
-```bash
-node src/index.js --config production.config.yml
-# Uses production.config.yml
-```
-
-**Absolute Path:**
-
-```bash
-node src/index.js --config /etc/nginx-proxy-switcher/config.yml
-# Uses absolute path
-```
-
-### Deployment Scenarios
-
-**Development:**
-
-```bash
-# Use default config for development
-npm run dev
-```
-
-**Production with Custom Config:**
-
-```bash
-# Use production configuration
-node src/index.js --config /etc/nginx-proxy-switcher/production.yml
-```
-
-**Docker/Container:**
-
-```bash
-# Mount config file and use custom path
-docker run -v /host/config.yml:/app/config.yml myapp node src/index.js --config /app/config.yml
-```
-
-**Systemd Service:**
-
-```bash
-# Edit service file to include custom config
-ExecStart=/usr/bin/node /opt/nginx-proxy-switcher/src/index.js --config /etc/nginx-proxy-switcher/config.yml
-```
-
-## Configuration
+## 📋 Configuration Guide
 
 ### Global Settings
 
-- `sqlite_file`: Path to the SQLite database file
-- `nginx_conf_dir`: Directory where Nginx proxy configurations are stored
+- `sqlite_file`: Path to the SQLite database file (usually `/data/database.db`)
+- `nginx_conf_dir`: Directory where Nginx proxy configurations are stored (usually `/data/nginx/proxy_host`)
 - `log_file`: Path to the application log file
-- `nginx_refresh_cmd`: Command to reload Nginx configuration (optional, defaults to `/usr/sbin/nginx -s reload`)
+- `nginx_refresh_cmd`: Command to reload Nginx configuration
 - `backup_dir`: Directory for storing proxy_host backups (optional, defaults to `./backups`)
-
-#### nginx_refresh_cmd Examples
-
-The `nginx_refresh_cmd` property allows you to customize how Nginx is reloaded. This is useful for different deployment scenarios:
-
-```yaml
-# Default (if not specified)
-nginx_refresh_cmd: /usr/sbin/nginx -s reload
-
-# Custom nginx binary location
-nginx_refresh_cmd: /usr/local/bin/nginx -s reload
-
-# Docker container
-nginx_refresh_cmd: docker exec nginx-container nginx -s reload
-
-# Systemd service
-nginx_refresh_cmd: systemctl reload nginx
-
-# Docker Compose
-nginx_refresh_cmd: docker-compose exec nginx nginx -s reload
-
-# Kubernetes
-nginx_refresh_cmd: kubectl exec nginx-pod -- nginx -s reload
-
-# With sudo
-nginx_refresh_cmd: sudo /usr/sbin/nginx -s reload
-
-# Custom nginx binary location
-nginx_refresh_cmd: /usr/local/bin/nginx -s reload
-```
-
-**Note:** The application automatically generates the corresponding test command by replacing `-s reload` with `-t`. For example:
-
-- `docker exec app /usr/sbin/nginx -s reload` → `docker exec app /usr/sbin/nginx -t`
-- `systemctl reload nginx` → `systemctl reload nginx -t`
-
-#### Backup System
-
-The application automatically creates backups of initial proxy_host configurations:
-
-- **Automatic Backup**: Creates JSON backups when services are initialized
-- **Timestamped Files**: Each backup includes a timestamp in the filename
-- **Complete Data**: Backups include all proxy_host fields (id, domain_names, forward_host, forward_port, forward_scheme, enabled)
-- **Metadata**: Each backup includes metadata about the backup type and description
-
-**Backup File Format:**
-
-```json
-{
-  "timestamp": "2025-01-20T12:30:45.123Z",
-  "serviceName": "sso",
-  "proxyHost": {
-    "id": 1,
-    "domain_names": "[\"sso.example.com\"]",
-    "forward_host": "192.168.11.2",
-    "forward_port": 8010,
-    "forward_scheme": "http",
-    "enabled": 1
-  },
-  "metadata": {
-    "backupType": "initial",
-    "description": "Initial proxy_host configuration before any modifications"
-  }
-}
-```
-
-**Backup Directory Examples:**
-
-```yaml
-# Default backup directory
-backup_dir: ./backups
-
-# Production backup directory
-backup_dir: /var/backups/nginx-proxy-manager
-
-# Docker volume backup directory
-backup_dir: /data/backups
-```
 
 ### Service Configuration
 
@@ -231,10 +156,9 @@ Both `if_success` and `if_failed` configurations now support an optional `scheme
 
 The application now uses a **simplified approach** that eliminates the need to configure `if_success` in most cases:
 
-1. **On startup**: The application reads the current configuration from the Nginx Proxy Manager database
-2. **When healthy**: Uses the original configuration from the database (or `if_success` if provided)
-3. **When unhealthy**: Switches to the `if_failed` fallback configuration
-4. **When healthy again**: Switches back to the original configuration
+- **Automatic Success Configuration**: Uses original configuration from database
+- **Only Configure Fallback**: You typically only need to specify `if_failed`
+- **Reduced Complexity**: Less configuration required
 
 This means you typically only need to configure the `if_failed` fallback server!
 
@@ -292,138 +216,283 @@ services:
       scheme: https # Fallback uses HTTPS
 ```
 
-## Architecture
+### nginx_refresh_cmd Examples
 
-The application follows a clean architecture pattern with the following components:
+The `nginx_refresh_cmd` property allows you to customize how Nginx is reloaded. This is useful for different deployment scenarios:
 
-- **ConfigLoader**: Handles YAML configuration loading and validation
-- **Logger**: Provides colorful logging with file and console output
-- **DatabaseManager**: Manages SQLite database operations
-- **HealthChecker**: Performs HTTP health checks on services
-- **NginxConfigUpdater**: Updates Nginx configuration files and reloads Nginx
-- **ServiceManager**: Main orchestrator that coordinates all components
-- **Application**: Main entry point and lifecycle management
+```yaml
+# Default (if not specified)
+nginx_refresh_cmd: /usr/sbin/nginx -s reload
 
-## Database Schema
+# Custom nginx binary location
+nginx_refresh_cmd: /usr/local/bin/nginx -s reload
 
-The application works with the Nginx Proxy Manager SQLite database, specifically the `proxy_host` table:
+# Docker container
+nginx_refresh_cmd: docker exec nginx-container nginx -s reload
 
-- `id`: Unique identifier
-- `domain_names`: JSON array of domain names
-- `forward_host`: Current forward host
-- `forward_port`: Current forward port
-- `forward_scheme`: Forward scheme (http/https)
-- `enabled`: Whether the proxy is enabled
+# Systemd service
+nginx_refresh_cmd: systemctl reload nginx
 
-## Nginx Configuration Format
+# Docker Compose
+nginx_refresh_cmd: docker-compose exec nginx nginx -s reload
 
-The application is designed to work with Nginx Proxy Manager's configuration format, which uses variables:
+# Kubernetes
+nginx_refresh_cmd: kubectl exec nginx-pod -- nginx -s reload
 
-```nginx
-server {
-  set $forward_scheme http;
-  set $server         "192.168.11.2";
-  set $port           8010;
+# With sudo
+nginx_refresh_cmd: sudo /usr/sbin/nginx -s reload
 
-  # ... other configuration ...
+# Custom nginx binary location
+nginx_refresh_cmd: /usr/local/bin/nginx -s reload
+```
 
-  location / {
-    proxy_pass $forward_scheme://$server:$port;
-    # ... other proxy settings ...
+**Note:** The application automatically generates the corresponding test command by replacing `-s reload` with `-t`. For example:
+
+- `docker exec app /usr/sbin/nginx -s reload` → `docker exec app /usr/sbin/nginx -t`
+- `systemctl reload nginx` → `systemctl reload nginx -t`
+
+### Backup System
+
+The application automatically creates backups of initial proxy_host configurations:
+
+- **Automatic Backup**: Creates JSON backups when services are initialized
+- **Timestamped Files**: Each backup includes a timestamp in the filename
+- **Complete Data**: Backups include all proxy_host fields (id, domain_names, forward_host, forward_port, forward_scheme, enabled)
+- **Metadata**: Each backup includes metadata about the backup type and description
+
+**Backup File Format:**
+
+```json
+{
+  "timestamp": "2025-01-20T12:30:45.123Z",
+  "serviceName": "sso",
+  "proxyHost": {
+    "id": 1,
+    "domain_names": "[\"sso.example.com\"]",
+    "forward_host": "192.168.11.2",
+    "forward_port": 8010,
+    "forward_scheme": "http",
+    "enabled": 1
+  },
+  "metadata": {
+    "backupType": "initial",
+    "description": "Initial proxy_host configuration before any modifications"
   }
 }
 ```
 
-The application will update the `set $server` and `set $port` directives when switching between primary and fallback servers.
+**Backup Directory Examples:**
 
-## Logging
+```yaml
+# Default backup directory
+backup_dir: ./backups
 
-The application provides comprehensive logging with:
+# Production backup directory
+backup_dir: /var/backups/nginx-proxy-manager
 
-- **Console Output**: Colorful, formatted logs for development and monitoring
-- **File Output**: JSON-formatted logs for production analysis
-- **Log Levels**: Debug, Info, Warn, Error, and Success
-- **Service Context**: Each log entry includes service context when applicable
-- **Health Check Results**: Detailed health check results with response times
-- **Configuration Changes**: Logs all proxy configuration updates
-
-## Error Handling
-
-The application includes robust error handling:
-
-- **Database Connection Errors**: Graceful handling of database connectivity issues
-- **Health Check Failures**: Proper handling of network timeouts and connection errors
-- **Nginx Configuration Errors**: Validation and rollback capabilities
-- **Service Initialization Errors**: Clear error messages and graceful shutdown
-
-## Development
-
-### Code Style
-
-This project uses Prettier for code formatting and ESLint for code quality. The code style is automatically enforced through pre-commit hooks.
-
-```bash
-# Format code
-npm run format              # Format src/ files
-npm run format:all          # Format all files
-
-# Lint code
-npm run lint                # Lint src/ files
-npm run lint:fix            # Fix linting issues
-
-# Check formatting
-npm run format:check        # Check src/ formatting
-npm run format:check:all    # Check all files
-
-# Combined checks
-npm run check               # Lint + format check
-npm run fix                 # Lint fix + format
+# Docker volume backup directory
+backup_dir: /data/backups
 ```
 
-See [CODE_STYLE.md](CODE_STYLE.md) for detailed coding standards and best practices.
+## 🛠️ Development Setup
 
-### Running in Development Mode
+If you want to run the application locally for development:
 
-```bash
-npm run dev
-```
+### Prerequisites
 
-This uses nodemon for automatic restart on file changes.
-
-### Testing
-
-```bash
-npm test
-```
-
-## Requirements
-
-- Node.js 14 or higher
-- Nginx with reload capability
-- SQLite3 database
+- Node.js 18+
 - Access to Nginx Proxy Manager database
-- Appropriate file system permissions for configuration updates
+- curl for health checks
 
-## Security Considerations
+### Installation
 
-- Ensure the application runs with appropriate permissions
-- Validate all configuration inputs
-- Use secure file permissions for configuration files
-- Monitor log files for security events
+1. **Clone and install:**
 
-## Troubleshooting
+```bash
+git clone <repository-url>
+cd nginx-proxy-manager-switcher
+npm install
+```
+
+2. **Create configuration:**
+
+```bash
+cp example.config.yml my-config.yml
+# Edit my-config.yml with your settings
+```
+
+3. **Run the application:**
+
+```bash
+# Development mode with auto-restart
+npm run dev
+
+# Production mode
+npm start
+
+# With custom config
+npm run start:config my-config.yml
+```
+
+### Available Scripts
+
+```bash
+npm start              # Start the application
+npm run dev            # Start in development mode with auto-restart
+npm run start:config   # Start with custom config file
+npm run dev:config     # Development mode with custom config
+npm test               # Run tests
+npm run lint           # Run ESLint
+npm run lint:fix       # Fix ESLint issues
+npm run format         # Format code with Prettier
+npm run check          # Run linting and formatting checks
+npm run fix            # Fix all linting and formatting issues
+```
+
+## 📊 Monitoring and Logs
+
+### Viewing Logs
+
+**Docker Compose:**
+
+```bash
+# View all logs
+docker-compose logs -f
+
+# View only switcher logs
+docker-compose logs -f nginx-proxy-manager-switcher
+
+# View last 100 lines
+docker-compose logs --tail=100 nginx-proxy-manager-switcher
+```
+
+**Docker:**
+
+```bash
+# View logs
+docker logs -f nginx-switcher
+
+# View last 100 lines
+docker logs --tail=100 nginx-switcher
+```
+
+### Log Levels
+
+The application provides detailed logging with different levels:
+
+- **INFO**: General information and successful operations
+- **SUCCESS**: Successful health checks and configuration updates
+- **WARN**: Non-critical issues and warnings
+- **ERROR**: Errors and failed operations
+- **DEBUG**: Detailed debugging information
+
+### Health Monitoring
+
+The Docker container includes health checks:
+
+```bash
+# Check container health
+docker ps
+# Look for "healthy" status
+
+# Manual health check
+docker exec nginx-switcher node -e "console.log('Health check passed')"
+```
+
+## 🔧 Troubleshooting
 
 ### Common Issues
 
-1. **Database Connection Failed**: Check SQLite file path and permissions
-2. **Nginx Reload Failed**: Ensure the application has permission to reload Nginx
-3. **Configuration File Not Found**: Verify the Nginx configuration directory path
-4. **Health Check Timeout**: Check network connectivity and service availability
+**1. Permission Denied Errors:**
+
+```bash
+# Check file permissions
+ls -la /path/to/npm/data/
+
+# Fix permissions (adjust UID:GID)
+sudo chown -R 1000:1000 /path/to/npm/data/
+```
+
+**2. Docker Socket Access:**
+
+```bash
+# Check if user is in docker group
+groups $USER
+
+# Add user to docker group
+sudo usermod -aG docker $USER
+# Log out and back in
+```
+
+**3. Configuration File Not Found:**
+
+```bash
+# Check if config file exists and is readable
+docker exec nginx-switcher cat /app/production.config.yml
+```
+
+**4. Database Connection Issues:**
+
+```bash
+# Check if database file exists
+docker exec nginx-switcher ls -la /data/database.db
+
+# Check database permissions
+docker exec nginx-switcher ls -la /data/
+```
 
 ### Debug Mode
 
-Enable debug logging by setting the log level to debug in the logger configuration.
+Enable debug logging by setting the log level in your configuration:
 
-## License
+```yaml
+# Add to your config file
+log_level: debug
+```
 
-MIT License
+Or set environment variable:
+
+```bash
+docker run -e LOG_LEVEL=debug dhanuprys/npm-restpage:latest
+```
+
+## 🏗️ Architecture
+
+The application follows a clean architecture pattern with the following components:
+
+- **ConfigLoader**: Handles YAML configuration loading and validation
+- **DatabaseManager**: Manages SQLite database connections and operations
+- **HealthChecker**: Performs HTTP health checks using curl
+- **NginxConfigUpdater**: Updates Nginx configuration files and reloads Nginx
+- **ServiceManager**: Orchestrates health checks, database updates, and Nginx reloads
+- **Logger**: Provides colorful console and file logging
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Make your changes
+4. Run tests: `npm test`
+5. Run linting: `npm run check`
+6. Commit your changes: `git commit -m 'Add feature'`
+7. Push to the branch: `git push origin feature-name`
+8. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+If you encounter any issues or have questions:
+
+1. Check the troubleshooting section above
+2. Review the logs for error messages
+3. Check the GitHub issues for similar problems
+4. Create a new issue with detailed information about your setup
+
+## 🙏 Acknowledgments
+
+- Built for Nginx Proxy Manager
+- Uses SQLite for database operations
+- Integrates with Docker for nginx command execution

@@ -1,0 +1,33 @@
+services:
+  app:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      - '80:80' # Public HTTP Port
+      - '443:443' # Public HTTPS Port
+      - '81:81' # Admin Web Port
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+
+  restpage:
+    image: dhanuprys/npm-restpage:latest
+    # activate if you want to change the config location
+    # command: ['--config', 'production.config.yml']
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./data:/data:rw
+      - ./production.config.yml:/app/production.config.yml:ro
+      - ./backups:/app/backups:rw
+      - ./logs:/app/logs:rw
+    environment:
+      - NODE_ENV=production
+      - TZ=UTC
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'node', '-e', "console.log('Health check passed')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
