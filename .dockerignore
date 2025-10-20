@@ -1,0 +1,14 @@
+node_modules
+.env
+.git
+.gitignore
+.eslintrc.js
+.eslintignore
+.prettierrc.js
+.prettierignore
+.husky
+.lintstagedrc.js
+.commitlintrc.js
+.commitlintignore
+.commitlintconfig.js
+.commitlintconfig.js
