@@ -23,6 +23,7 @@
  * @property {string} sqlite_file - Path to SQLite database file
  * @property {string} nginx_conf_dir - Directory for Nginx proxy configurations
  * @property {string} log_file - Path to log file
+ * @property {string} [nginx_refresh_cmd] - Command to reload Nginx configuration (optional, defaults to '/usr/sbin/nginx -s reload')
  * @property {Object.<string, ServiceConfig>} services - Service configurations
  */
 

@@ -11,6 +11,13 @@ nginx_conf_dir: /data/nginx/proxy_host
 # Path for the checker script's log file.
 log_file: /var/log/host_switcher.log
 
+# Command to reload Nginx configuration (optional, defaults to '/usr/sbin/nginx -s reload')
+# Examples:
+# nginx_refresh_cmd: /usr/sbin/nginx -s reload
+# nginx_refresh_cmd: /usr/local/bin/nginx -s reload
+# nginx_refresh_cmd: docker exec nginx-container nginx -s reload
+# nginx_refresh_cmd: systemctl reload nginx
+
 # --- Service Definitions ---
 services:
   sso:

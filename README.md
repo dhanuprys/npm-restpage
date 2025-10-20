@@ -15,11 +15,13 @@ An extended application for Nginx Proxy Manager that automatically switches prox
 ## Installation
 
 1. Install Node.js dependencies:
+
 ```bash
 npm install
 ```
 
 2. Configure your services in `config_template.yml`:
+
 ```yaml
 sqlite_file: /data/database.db
 nginx_conf_dir: /data/nginx/proxy_host
@@ -40,8 +42,82 @@ services:
 ```
 
 3. Run the application:
+
 ```bash
+# Use default configuration
 npm start
+
+# Use custom configuration file
+node src/index.js --config /path/to/your/config.yml
+
+# Short form
+node src/index.js -c ./my-config.yml
+```
+
+### Command Line Options
+
+The application supports several command-line options:
+
+```bash
+node src/index.js [options]
+
+Options:
+  -c, --config <file>    Path to configuration file (default: config_template.yml)
+  -h, --help            Display help message
+  -v, --version         Display version information
+```
+
+### Configuration File Examples
+
+**Default Configuration:**
+
+```bash
+node src/index.js
+# Uses config_template.yml
+```
+
+**Custom Configuration:**
+
+```bash
+node src/index.js --config production.config.yml
+# Uses production.config.yml
+```
+
+**Absolute Path:**
+
+```bash
+node src/index.js --config /etc/nginx-proxy-switcher/config.yml
+# Uses absolute path
+```
+
+### Deployment Scenarios
+
+**Development:**
+
+```bash
+# Use default config for development
+npm run dev
+```
+
+**Production with Custom Config:**
+
+```bash
+# Use production configuration
+node src/index.js --config /etc/nginx-proxy-switcher/production.yml
+```
+
+**Docker/Container:**
+
+```bash
+# Mount config file and use custom path
+docker run -v /host/config.yml:/app/config.yml myapp node src/index.js --config /app/config.yml
+```
+
+**Systemd Service:**
+
+```bash
+# Edit service file to include custom config
+ExecStart=/usr/bin/node /opt/nginx-proxy-switcher/src/index.js --config /etc/nginx-proxy-switcher/config.yml
 ```
 
 ## Configuration
@@ -51,6 +127,41 @@ npm start
 - `sqlite_file`: Path to the SQLite database file
 - `nginx_conf_dir`: Directory where Nginx proxy configurations are stored
 - `log_file`: Path to the application log file
+- `nginx_refresh_cmd`: Command to reload Nginx configuration (optional, defaults to `/usr/sbin/nginx -s reload`)
+
+#### nginx_refresh_cmd Examples
+
+The `nginx_refresh_cmd` property allows you to customize how Nginx is reloaded. This is useful for different deployment scenarios:
+
+```yaml
+# Default (if not specified)
+nginx_refresh_cmd: /usr/sbin/nginx -s reload
+
+# Custom nginx binary location
+nginx_refresh_cmd: /usr/local/bin/nginx -s reload
+
+# Docker container
+nginx_refresh_cmd: docker exec nginx-container nginx -s reload
+
+# Systemd service
+nginx_refresh_cmd: systemctl reload nginx
+
+# Docker Compose
+nginx_refresh_cmd: docker-compose exec nginx nginx -s reload
+
+# Kubernetes
+nginx_refresh_cmd: kubectl exec nginx-pod -- nginx -s reload
+
+# With sudo
+nginx_refresh_cmd: sudo /usr/sbin/nginx -s reload
+
+# Custom nginx binary location
+nginx_refresh_cmd: /usr/local/bin/nginx -s reload
+```
+
+**Note:** The application automatically generates the corresponding test command by replacing `-s reload` with `-s t`. For example:
+- `docker exec app /usr/sbin/nginx -s reload` → `docker exec app /usr/sbin/nginx -s t`
+- `systemctl reload nginx` → `systemctl reload nginx -t`
 
 ### Service Configuration
 
@@ -95,9 +206,9 @@ server {
   set $forward_scheme http;
   set $server         "192.168.11.2";
   set $port           8010;
-  
+
   # ... other configuration ...
-  
+
   location / {
     proxy_pass $forward_scheme://$server:$port;
     # ... other proxy settings ...

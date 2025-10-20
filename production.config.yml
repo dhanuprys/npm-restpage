@@ -1,0 +1,56 @@
+# Production configuration for Nginx Proxy Manager Switcher
+# This is an example of a custom configuration file
+
+# --- Global Settings ---
+# Path to the SQLite database file for storing service states.
+sqlite_file: /var/lib/nginx-proxy-manager/database.db
+
+# Directory where the final Nginx proxy configurations will be written.
+nginx_conf_dir: /etc/nginx/conf.d/proxy_host
+
+# Path for the checker script's log file.
+log_file: /var/log/nginx-proxy-switcher.log
+
+# Command to reload Nginx configuration (optional, defaults to '/usr/sbin/nginx -s reload')
+nginx_refresh_cmd: /usr/sbin/nginx -s reload
+
+# --- Service Definitions ---
+services:
+  # Production SSO service
+  sso:
+    domain: sso.company.com
+    check: http://10.0.1.10:8000/health
+    interval: 3s
+    error_delay: 10s
+    if_success:
+      host: 10.0.1.10
+      port: 8000
+    if_failed:
+      host: 10.0.1.11
+      port: 8000
+
+  # Production API service
+  api:
+    domain: api.company.com
+    check: http://10.0.2.10:3000/health
+    interval: 5s
+    error_delay: 15s
+    if_success:
+      host: 10.0.2.10
+      port: 3000
+    if_failed:
+      host: 10.0.2.11
+      port: 3000
+
+  # Production web service
+  web:
+    domain: www.company.com
+    check: http://10.0.3.10:80/health
+    interval: 2s
+    error_delay: 8s
+    if_success:
+      host: 10.0.3.10
+      port: 80
+    if_failed:
+      host: 10.0.3.11
+      port: 80

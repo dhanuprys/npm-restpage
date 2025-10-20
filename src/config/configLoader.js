@@ -44,6 +44,16 @@ class ConfigLoader {
       }
     }
 
+    // Set default nginx_refresh_cmd if not provided
+    if (!this.config.nginx_refresh_cmd) {
+      this.config.nginx_refresh_cmd = '/usr/sbin/nginx -s reload';
+    }
+
+    // Validate nginx_refresh_cmd if provided
+    if (this.config.nginx_refresh_cmd && typeof this.config.nginx_refresh_cmd !== 'string') {
+      throw new Error('nginx_refresh_cmd must be a string');
+    }
+
     // Validate services
     if (
       typeof this.config.services !== 'object' ||

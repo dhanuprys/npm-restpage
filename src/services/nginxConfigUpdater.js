@@ -10,6 +10,43 @@ class NginxConfigUpdater {
     this.config = config;
     this.logger = logger;
     this.nginxConfDir = config.nginx_conf_dir;
+    this.nginxRefreshCmd = config.nginx_refresh_cmd || '/usr/sbin/nginx -s reload';
+    this.nginxTestCmd = this.getNginxTestCommand();
+  }
+
+  /**
+   * Get the nginx test command based on the refresh command
+   * @returns {string} Nginx test command
+   */
+  getNginxTestCommand() {
+    // Handle different command patterns
+    const parts = this.nginxRefreshCmd.split(' ');
+
+    // Find the nginx binary in the command
+    let nginxIndex = -1;
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].includes('nginx') && !parts[i].includes('-s')) {
+        nginxIndex = i;
+        break;
+      }
+    }
+
+    if (nginxIndex === -1) {
+      // Fallback: assume nginx is the first part
+      return `${parts[0]} -t`;
+    }
+
+    // Replace the reload flag with test flag
+    const testParts = [...parts];
+    const reloadIndex = testParts.findIndex(part => part === '-s');
+    if (reloadIndex !== -1 && testParts[reloadIndex + 1] === 'reload') {
+      testParts[reloadIndex + 1] = 't';
+    } else {
+      // If no -s reload found, append -t
+      testParts.push('-t');
+    }
+
+    return testParts.join(' ');
   }
 
   /**
@@ -120,12 +157,13 @@ class NginxConfigUpdater {
    */
   async reloadNginx() {
     return new Promise(resolve => {
-      this.logger.info('Reloading Nginx configuration...', 'nginx');
+      this.logger.info(`Reloading Nginx configuration using: ${this.nginxRefreshCmd}`, 'nginx');
 
-      exec('/usr/sbin/nginx -s reload', (error, stdout, stderr) => {
+      exec(this.nginxRefreshCmd, (error, stdout, stderr) => {
         if (error) {
           this.logger.nginxReload(false, error.message);
           this.logger.error(`Nginx reload failed: ${error.message}`, 'nginx', {
+            command: this.nginxRefreshCmd,
             stderr: stderr.toString(),
           });
           resolve(false);
@@ -144,11 +182,12 @@ class NginxConfigUpdater {
    */
   async testNginxConfig() {
     return new Promise(resolve => {
-      this.logger.debug('Testing Nginx configuration syntax...', 'nginx');
+      this.logger.debug(`Testing Nginx configuration syntax using: ${this.nginxTestCmd}`, 'nginx');
 
-      exec('/usr/sbin/nginx -t', (error, stdout, stderr) => {
+      exec(this.nginxTestCmd, (error, stdout, stderr) => {
         if (error) {
           this.logger.error(`Nginx config test failed: ${error.message}`, 'nginx', {
+            command: this.nginxTestCmd,
             stderr: stderr.toString(),
           });
           resolve(false);

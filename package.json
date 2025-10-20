@@ -5,7 +5,9 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "start:config": "node src/index.js --config",
     "dev": "nodemon src/index.js",
+    "dev:config": "nodemon src/index.js --config",
     "test": "jest",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
