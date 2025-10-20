@@ -130,10 +130,13 @@ class Logger {
       ? `Health check passed (${responseTime}ms)`
       : `Health check failed: ${error}`;
 
-    const level = success ? 'success' : 'error';
     const meta = { responseTime, error };
 
-    this.logger[level](message, service, meta);
+    if (success) {
+      this.success(message, service, meta);
+    } else {
+      this.error(message, service, meta);
+    }
   }
 
   /**
