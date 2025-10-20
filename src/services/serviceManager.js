@@ -38,7 +38,7 @@ class ServiceManager {
       }
 
       // Initialize service states
-      this.initializeServiceStates();
+      await this.initializeServiceStates();
 
       this.logger.success('Service Manager initialized successfully', 'service-manager');
     } catch (error) {
@@ -53,11 +53,32 @@ class ServiceManager {
   /**
    * Initialize service states from configuration
    */
-  initializeServiceStates() {
+  async initializeServiceStates() {
     for (const [serviceName, serviceConfig] of Object.entries(this.config.services)) {
+      // Get original configuration from database
+      const proxyHost = await this.database.findProxyHostByDomain(serviceConfig.domain);
+
+      let originalConfig = null;
+      if (proxyHost) {
+        originalConfig = {
+          host: proxyHost.forward_host,
+          port: proxyHost.forward_port,
+        };
+        this.logger.debug(
+          `Found original config for ${serviceName}: ${originalConfig.host}:${originalConfig.port}`,
+          'service-manager'
+        );
+      } else {
+        this.logger.warn(
+          `No proxy host found for domain: ${serviceConfig.domain}`,
+          'service-manager'
+        );
+      }
+
       this.serviceStates.set(serviceName, {
         name: serviceName,
         config: serviceConfig,
+        originalConfig, // Store original config from database
         isHealthy: false,
         lastCheck: null,
         consecutiveFailures: 0,
@@ -181,7 +202,21 @@ class ServiceManager {
     }
 
     // Determine target configuration
-    const targetConfig = healthResult.success ? config.if_success : config.if_failed;
+    let targetConfig;
+    if (healthResult.success) {
+      // Use original config from database if available, otherwise use if_success if provided
+      targetConfig = serviceState.originalConfig || config.if_success;
+      if (!targetConfig) {
+        this.logger.warn(
+          `No success configuration available for ${serviceName}, skipping update`,
+          'service-manager'
+        );
+        return;
+      }
+    } else {
+      // Use fallback configuration
+      targetConfig = config.if_failed;
+    }
 
     // Check if we need to update the proxy configuration
     const needsUpdate = this.needsConfigurationUpdate(serviceState, targetConfig);

@@ -74,14 +74,7 @@ class ConfigLoader {
    * @param {ServiceConfig} service - Service configuration
    */
   validateService(serviceName, service) {
-    const requiredFields = [
-      'domain',
-      'check',
-      'interval',
-      'error_delay',
-      'if_success',
-      'if_failed',
-    ];
+    const requiredFields = ['domain', 'check', 'interval', 'error_delay', 'if_failed'];
 
     for (const field of requiredFields) {
       if (!service[field]) {
@@ -89,12 +82,17 @@ class ConfigLoader {
       }
     }
 
-    // Validate if_success and if_failed
-    ['if_success', 'if_failed'].forEach(condition => {
-      if (!service[condition].host || !service[condition].port) {
-        throw new Error(`Service '${serviceName}' ${condition} missing host or port`);
+    // Validate if_failed (if_success is now optional)
+    if (!service.if_failed.host || !service.if_failed.port) {
+      throw new Error(`Service '${serviceName}' if_failed missing host or port`);
+    }
+
+    // If if_success is provided, validate it
+    if (service.if_success) {
+      if (!service.if_success.host || !service.if_success.port) {
+        throw new Error(`Service '${serviceName}' if_success missing host or port`);
       }
-    });
+    }
   }
 
   /**

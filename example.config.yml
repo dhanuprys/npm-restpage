@@ -28,10 +28,11 @@ services:
     interval: 2s
     # Time to wait before retrying after a check has FAILED.
     error_delay: 5s
-    # Upstream server to use if the health check succeeds.
-    if_success:
-      host: 192.168.11.1
-      port: 8000
+    # Upstream server to use if the health check succeeds (optional).
+    # If not provided, the application will use the original configuration from the database.
+    # if_success:
+    #   host: 192.168.11.1
+    #   port: 8000
     # Fallback upstream server to use if the health check fails.
     if_failed:
       host: 192.168.13.1
@@ -43,9 +44,7 @@ services:
     check: http://192.168.20.5:80/health
     interval: 5s
     error_delay: 10s
-    if_success:
-      host: 192.168.20.5
-      port: 80
+    # if_success is optional - will use original config from database
     if_failed:
       host: 192.168.21.5
       port: 80
@@ -56,9 +55,7 @@ services:
     check: http://192.168.30.10:3000/health
     interval: 3s
     error_delay: 8s
-    if_success:
-      host: 192.168.30.10
-      port: 3000
+    # if_success is optional - will use original config from database
     if_failed:
       host: 192.168.30.11
       port: 3000

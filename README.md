@@ -172,8 +172,54 @@ Each service requires the following configuration:
 - `check`: HTTP URL to check for service health (must return 2xx status code)
 - `interval`: Time between health checks when service is UP (e.g., "2s", "5m")
 - `error_delay`: Time to wait before retrying after a check fails
-- `if_success`: Upstream server configuration when health check succeeds
 - `if_failed`: Fallback upstream server configuration when health check fails
+- `if_success`: **Optional** upstream server configuration when health check succeeds
+
+#### Simplified Configuration Approach
+
+The application now uses a **simplified approach** that eliminates the need to configure `if_success` in most cases:
+
+1. **On startup**: The application reads the current configuration from the Nginx Proxy Manager database
+2. **When healthy**: Uses the original configuration from the database (or `if_success` if provided)
+3. **When unhealthy**: Switches to the `if_failed` fallback configuration
+4. **When healthy again**: Switches back to the original configuration
+
+This means you typically only need to configure the `if_failed` fallback server!
+
+#### Configuration Examples
+
+**Minimal Configuration (Recommended):**
+
+```yaml
+services:
+  sso:
+    domain: sso.example.com
+    check: http://192.168.11.1:8000/health
+    interval: 2s
+    error_delay: 5s
+    # Only configure the fallback - original config comes from database
+    if_failed:
+      host: 192.168.13.1
+      port: 80
+```
+
+**With Custom Success Configuration:**
+
+```yaml
+services:
+  sso:
+    domain: sso.example.com
+    check: http://192.168.11.1:8000/health
+    interval: 2s
+    error_delay: 5s
+    # Override the original config from database
+    if_success:
+      host: 192.168.11.1
+      port: 8000
+    if_failed:
+      host: 192.168.13.1
+      port: 80
+```
 
 ## Architecture
 
