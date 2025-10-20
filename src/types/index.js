@@ -9,6 +9,7 @@
  * @property {string} check - Health check URL
  * @property {string} interval - Time between health checks when service is UP
  * @property {string} error_delay - Time to wait before retrying after failure
+ * @property {number} [retries] - Number of retry attempts before marking as failed (optional, defaults to 3)
  * @property {Object} [if_success] - Upstream server config when health check succeeds (optional, uses original config from database if not provided)
  * @property {string} [if_success.host] - Host when successful
  * @property {number} [if_success.port] - Port when successful

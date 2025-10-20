@@ -194,7 +194,8 @@ class ServiceManager {
     const { config } = serviceState;
 
     // Perform health check
-    const healthResult = await this.healthChecker.checkHealth(config.check, serviceName);
+    const retries = config.retries || 3; // Default to 3 retries
+    const healthResult = await this.healthChecker.checkHealth(config.check, serviceName, retries);
 
     // Update service state
     serviceState.isHealthy = healthResult.success;

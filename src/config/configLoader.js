@@ -102,6 +102,13 @@ class ConfigLoader {
       throw new Error(`Service '${serviceName}' if_failed scheme must be 'http' or 'https'`);
     }
 
+    // Validate retries if provided
+    if (service.retries !== undefined) {
+      if (typeof service.retries !== 'number' || service.retries < 1 || service.retries > 10) {
+        throw new Error(`Service '${serviceName}' retries must be a number between 1 and 10`);
+      }
+    }
+
     // If if_success is provided, validate it
     if (service.if_success) {
       if (!service.if_success.host || !service.if_success.port) {

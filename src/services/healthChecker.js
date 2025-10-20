@@ -40,55 +40,119 @@ class HealthChecker {
    * Perform health check on a service
    * @param {string} checkUrl - URL to check
    * @param {string} serviceName - Name of the service being checked
+   * @param {number} retries - Number of retry attempts (defaults to 3)
    * @returns {Promise<HealthCheckResult>} Health check result
    */
-  async checkHealth(checkUrl, serviceName) {
-    const startTime = Date.now();
+  async checkHealth(checkUrl, serviceName, retries = 3) {
+    const maxRetries = Math.max(1, retries); // Ensure at least 1 attempt
+    let lastError = null;
 
-    try {
-      this.logger.debug(`Starting health check: ${checkUrl}`, serviceName);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const startTime = Date.now();
 
-      const response = await this.axiosInstance.get(checkUrl);
-      const responseTime = Date.now() - startTime;
+      try {
+        if (attempt > 1) {
+          this.logger.debug(
+            `Health check retry ${attempt}/${maxRetries}: ${checkUrl}`,
+            serviceName
+          );
+        } else {
+          this.logger.debug(`Starting health check: ${checkUrl}`, serviceName);
+        }
 
-      // Consider 2xx status codes as success
-      const success = response.status >= 200 && response.status < 300;
+        const response = await this.axiosInstance.get(checkUrl);
+        const responseTime = Date.now() - startTime;
 
-      if (success) {
-        this.logger.healthCheck(serviceName, true, responseTime);
-      } else {
-        this.logger.healthCheck(serviceName, false, responseTime, `HTTP ${response.status}`);
+        // Consider 2xx status codes as success
+        const success = response.status >= 200 && response.status < 300;
+
+        if (success) {
+          if (attempt > 1) {
+            this.logger.info(
+              `Health check succeeded on retry ${attempt}/${maxRetries}`,
+              serviceName,
+              { responseTime, attempt }
+            );
+          }
+          this.logger.healthCheck(serviceName, true, responseTime);
+
+          return {
+            success,
+            responseTime,
+            error: null,
+            attempts: attempt,
+          };
+        } else {
+          lastError = `HTTP ${response.status}`;
+          if (attempt < maxRetries) {
+            this.logger.warn(
+              `Health check failed (attempt ${attempt}/${maxRetries}): HTTP ${response.status}`,
+              serviceName,
+              { responseTime, attempt }
+            );
+            // Wait a bit before retrying
+            await this.sleep(1000);
+            continue;
+          }
+        }
+      } catch (error) {
+        const responseTime = Date.now() - startTime;
+        let errorMessage = 'Unknown error';
+
+        if (error.code === 'ECONNREFUSED') {
+          errorMessage = 'Connection refused';
+        } else if (error.code === 'ETIMEDOUT') {
+          errorMessage = 'Connection timeout';
+        } else if (error.code === 'ENOTFOUND') {
+          errorMessage = 'Host not found';
+        } else if (error.response) {
+          errorMessage = `HTTP ${error.response.status}`;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
+        lastError = errorMessage;
+
+        if (attempt < maxRetries) {
+          this.logger.warn(
+            `Health check failed (attempt ${attempt}/${maxRetries}): ${errorMessage}`,
+            serviceName,
+            { responseTime, attempt }
+          );
+          // Wait a bit before retrying
+          await this.sleep(1000);
+          continue;
+        }
+
+        // Last attempt failed
+        this.logger.healthCheck(serviceName, false, responseTime, errorMessage);
+
+        return {
+          success: false,
+          responseTime,
+          error: errorMessage,
+          attempts: attempt,
+        };
       }
-
-      return {
-        success,
-        responseTime,
-        error: success ? null : `HTTP ${response.status}`,
-      };
-    } catch (error) {
-      const responseTime = Date.now() - startTime;
-      let errorMessage = 'Unknown error';
-
-      if (error.code === 'ECONNREFUSED') {
-        errorMessage = 'Connection refused';
-      } else if (error.code === 'ETIMEDOUT') {
-        errorMessage = 'Connection timeout';
-      } else if (error.code === 'ENOTFOUND') {
-        errorMessage = 'Host not found';
-      } else if (error.response) {
-        errorMessage = `HTTP ${error.response.status}`;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      this.logger.healthCheck(serviceName, false, responseTime, errorMessage);
-
-      return {
-        success: false,
-        responseTime,
-        error: errorMessage,
-      };
     }
+
+    // All retries exhausted
+    this.logger.healthCheck(serviceName, false, null, lastError);
+    return {
+      success: false,
+      responseTime: 0,
+      error: lastError,
+      attempts: maxRetries,
+    };
+  }
+
+  /**
+   * Sleep for specified milliseconds
+   * @param {number} ms - Milliseconds to sleep
+   * @returns {Promise<void>}
+   */
+  async sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**

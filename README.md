@@ -141,6 +141,7 @@ Each service requires the following configuration:
 - `check`: HTTP URL to check for service health (must return 2xx status code)
 - `interval`: Time between health checks when service is UP (e.g., "2s", "5m")
 - `error_delay`: Time to wait before retrying after a check fails
+- `retries`: **Optional** number of retry attempts before marking as failed (defaults to 3, range: 1-10)
 - `if_failed`: Fallback upstream server configuration when health check fails
 - `if_success`: **Optional** upstream server configuration when health check succeeds
 
@@ -151,6 +152,37 @@ Both `if_success` and `if_failed` configurations now support an optional `scheme
 - `scheme`: **Optional** forward scheme ('http' or 'https')
 - If not provided, the application will use the original scheme from the database
 - If provided, it will override the scheme when switching configurations
+
+#### Retry Configuration
+
+The application supports configurable retry attempts for health checks:
+
+- **Default Retries**: 3 attempts if not specified
+- **Configurable Range**: 1 to 10 retries
+- **Retry Delay**: 1 second between retry attempts
+- **Smart Logging**: Logs each retry attempt with progress
+
+**Retry Strategy:**
+
+- **Reduces False Positives**: Transient network issues won't trigger failover
+- **Configurable per Service**: Critical services can have more retries
+- **Quick Failover**: Services can have fewer retries for faster detection
+
+**Examples:**
+
+```yaml
+# Quick failover - fail fast
+retries: 1
+
+# Balanced approach (default)
+retries: 3
+
+# Critical service - more tolerance
+retries: 5
+
+# Maximum stability
+retries: 10
+```
 
 #### Simplified Configuration Approach
 
@@ -413,6 +445,7 @@ The application is configured to prevent socket hang-up issues:
 - **Works Like curl**: Behaves the same way as curl commands
 
 If you still experience hang-ups, check:
+
 ```bash
 # Test your health endpoint with curl
 curl -v http://your-service:port/health
