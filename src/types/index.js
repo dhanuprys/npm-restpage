@@ -26,6 +26,7 @@
  * @property {string} nginx_conf_dir - Directory for Nginx proxy configurations
  * @property {string} log_file - Path to log file
  * @property {string} [nginx_refresh_cmd] - Command to reload Nginx configuration (optional, defaults to '/usr/sbin/nginx -s reload')
+ * @property {string} [backup_dir] - Directory for storing proxy_host backups (optional, defaults to './backups')
  * @property {Object.<string, ServiceConfig>} services - Service configurations
  */
 

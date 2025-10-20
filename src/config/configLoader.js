@@ -49,9 +49,19 @@ class ConfigLoader {
       this.config.nginx_refresh_cmd = '/usr/sbin/nginx -s reload';
     }
 
+    // Set default backup_dir if not provided
+    if (!this.config.backup_dir) {
+      this.config.backup_dir = './backups';
+    }
+
     // Validate nginx_refresh_cmd if provided
     if (this.config.nginx_refresh_cmd && typeof this.config.nginx_refresh_cmd !== 'string') {
       throw new Error('nginx_refresh_cmd must be a string');
+    }
+
+    // Validate backup_dir if provided
+    if (this.config.backup_dir && typeof this.config.backup_dir !== 'string') {
+      throw new Error('backup_dir must be a string');
     }
 
     // Validate services

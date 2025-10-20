@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 
 /**
  * Database manager for SQLite operations
@@ -21,6 +22,9 @@ class DatabaseManager {
       // Ensure directory exists
       const dbDir = path.dirname(dbPath);
       require('fs').mkdirSync(dbDir, { recursive: true });
+
+      // Ensure backup directory exists
+      this.ensureBackupDirectory();
 
       this.db = new sqlite3.Database(dbPath, err => {
         if (err) {
@@ -52,6 +56,71 @@ class DatabaseManager {
         resolve();
       }
     });
+  }
+
+  /**
+   * Ensure backup directory exists
+   */
+  ensureBackupDirectory() {
+    const backupDir = this.config.backup_dir || './backups';
+
+    if (!fs.existsSync(backupDir)) {
+      try {
+        fs.mkdirSync(backupDir, { recursive: true });
+        this.logger.info(`Created backup directory: ${backupDir}`, 'database');
+      } catch (error) {
+        this.logger.error(`Failed to create backup directory: ${error.message}`, 'database', {
+          backupDir,
+        });
+      }
+    }
+  }
+
+  /**
+   * Backup initial proxy_host data
+   * @param {string} serviceName - Name of the service being initialized
+   * @param {Object} proxyHost - Proxy host data to backup
+   */
+  async backupInitialProxyHost(serviceName, proxyHost) {
+    try {
+      const backupDir = this.config.backup_dir || './backups';
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `proxy_host_${serviceName}_${timestamp}.json`;
+      const filepath = path.join(backupDir, filename);
+
+      const backupData = {
+        timestamp: new Date().toISOString(),
+        serviceName,
+        proxyHost: {
+          id: proxyHost.id,
+          domain_names: proxyHost.domain_names,
+          forward_host: proxyHost.forward_host,
+          forward_port: proxyHost.forward_port,
+          forward_scheme: proxyHost.forward_scheme,
+          enabled: proxyHost.enabled,
+        },
+        metadata: {
+          backupType: 'initial',
+          description: 'Initial proxy_host configuration before any modifications',
+        },
+      };
+
+      fs.writeFileSync(filepath, JSON.stringify(backupData, null, 2));
+      this.logger.info(`Backed up initial proxy_host for ${serviceName}: ${filename}`, 'database', {
+        serviceName,
+        filename,
+        proxyHostId: proxyHost.id,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to backup initial proxy_host for ${serviceName}: ${error.message}`,
+        'database',
+        {
+          serviceName,
+          proxyHostId: proxyHost.id,
+        }
+      );
+    }
   }
 
   /**

@@ -14,6 +14,9 @@ log_file: /var/log/nginx-proxy-switcher.log
 # Command to reload Nginx configuration (optional, defaults to '/usr/sbin/nginx -s reload')
 nginx_refresh_cmd: /usr/sbin/nginx -s reload
 
+# Directory for storing proxy_host backups (optional, defaults to './backups')
+backup_dir: /var/backups/nginx-proxy-manager
+
 # --- Service Definitions ---
 services:
   # Production SSO service

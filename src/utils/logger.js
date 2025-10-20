@@ -158,8 +158,12 @@ class Logger {
     const message = success
       ? 'Nginx configuration reloaded successfully'
       : `Nginx reload failed: ${error}`;
-    const level = success ? 'success' : 'error';
-    this.logger[level](message, 'nginx', { error });
+
+    if (success) {
+      this.success(message, 'nginx');
+    } else {
+      this.error(message, 'nginx', { error });
+    }
   }
 }
 

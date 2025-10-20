@@ -128,6 +128,7 @@ ExecStart=/usr/bin/node /opt/nginx-proxy-switcher/src/index.js --config /etc/ngi
 - `nginx_conf_dir`: Directory where Nginx proxy configurations are stored
 - `log_file`: Path to the application log file
 - `nginx_refresh_cmd`: Command to reload Nginx configuration (optional, defaults to `/usr/sbin/nginx -s reload`)
+- `backup_dir`: Directory for storing proxy_host backups (optional, defaults to `./backups`)
 
 #### nginx_refresh_cmd Examples
 
@@ -163,6 +164,49 @@ nginx_refresh_cmd: /usr/local/bin/nginx -s reload
 
 - `docker exec app /usr/sbin/nginx -s reload` → `docker exec app /usr/sbin/nginx -t`
 - `systemctl reload nginx` → `systemctl reload nginx -t`
+
+#### Backup System
+
+The application automatically creates backups of initial proxy_host configurations:
+
+- **Automatic Backup**: Creates JSON backups when services are initialized
+- **Timestamped Files**: Each backup includes a timestamp in the filename
+- **Complete Data**: Backups include all proxy_host fields (id, domain_names, forward_host, forward_port, forward_scheme, enabled)
+- **Metadata**: Each backup includes metadata about the backup type and description
+
+**Backup File Format:**
+
+```json
+{
+  "timestamp": "2025-01-20T12:30:45.123Z",
+  "serviceName": "sso",
+  "proxyHost": {
+    "id": 1,
+    "domain_names": "[\"sso.example.com\"]",
+    "forward_host": "192.168.11.2",
+    "forward_port": 8010,
+    "forward_scheme": "http",
+    "enabled": 1
+  },
+  "metadata": {
+    "backupType": "initial",
+    "description": "Initial proxy_host configuration before any modifications"
+  }
+}
+```
+
+**Backup Directory Examples:**
+
+```yaml
+# Default backup directory
+backup_dir: ./backups
+
+# Production backup directory
+backup_dir: /var/backups/nginx-proxy-manager
+
+# Docker volume backup directory
+backup_dir: /data/backups
+```
 
 ### Service Configuration
 

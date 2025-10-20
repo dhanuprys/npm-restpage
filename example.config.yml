@@ -18,6 +18,13 @@ log_file: /var/log/host_switcher.log
 # nginx_refresh_cmd: docker exec nginx-container nginx -s reload
 # nginx_refresh_cmd: systemctl reload nginx
 
+# Directory for storing proxy_host backups (optional, defaults to './backups')
+# Examples:
+# backup_dir: ./backups
+# backup_dir: /var/backups/nginx-proxy-manager
+# backup_dir: /data/backups
+backup_dir: ./backups
+
 # --- Service Definitions ---
 services:
   sso:

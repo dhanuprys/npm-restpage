@@ -69,6 +69,9 @@ class ServiceManager {
           `Found original config for ${serviceName}: ${originalConfig.scheme}://${originalConfig.host}:${originalConfig.port}`,
           'service-manager'
         );
+
+        // Backup initial proxy_host configuration
+        await this.database.backupInitialProxyHost(serviceName, proxyHost);
       } else {
         this.logger.warn(
           `No proxy host found for domain: ${serviceConfig.domain}`,
