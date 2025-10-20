@@ -403,7 +403,25 @@ docker exec nginx-switcher node -e "console.log('Health check passed')"
 
 ### Common Issues
 
-**1. Permission Denied Errors:**
+**1. Socket Hang-up Errors:**
+
+The application is configured to prevent socket hang-up issues:
+
+- **Keep-Alive Disabled**: Each health check creates a fresh connection
+- **Connection: close Header**: Explicitly closes connections after requests
+- **Timeout Settings**: Prevents indefinite waiting
+- **Works Like curl**: Behaves the same way as curl commands
+
+If you still experience hang-ups, check:
+```bash
+# Test your health endpoint with curl
+curl -v http://your-service:port/health
+
+# Check server logs for connection issues
+docker logs your-service-container
+```
+
+**2. Permission Denied Errors:**
 
 ```bash
 # Check file permissions

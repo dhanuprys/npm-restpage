@@ -1,4 +1,6 @@
 const axios = require('axios');
+const http = require('http');
+const https = require('https');
 
 /**
  * Health checker service for monitoring service availability
@@ -6,11 +8,31 @@ const axios = require('axios');
 class HealthChecker {
   constructor(logger) {
     this.logger = logger;
+
+    // Configure HTTP and HTTPS agents with proper keep-alive settings
+    const httpAgent = new http.Agent({
+      keepAlive: false, // Disable keep-alive to prevent socket hang-ups
+      maxSockets: 50,
+      timeout: 10000,
+    });
+
+    const httpsAgent = new https.Agent({
+      keepAlive: false, // Disable keep-alive to prevent socket hang-ups
+      maxSockets: 50,
+      timeout: 10000,
+      rejectUnauthorized: false, // Allow self-signed certificates
+    });
+
     this.axiosInstance = axios.create({
       timeout: 10000, // 10 second timeout
+      maxRedirects: 5,
+      validateStatus: status => status >= 200 && status < 300, // Only 2xx is success
       headers: {
         'User-Agent': 'Nginx-Proxy-Manager-Switcher/1.0.0',
+        Connection: 'close', // Explicitly close connection after request
       },
+      httpAgent,
+      httpsAgent,
     });
   }
 
