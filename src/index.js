@@ -132,8 +132,8 @@ class Application {
     try {
       await this.initialize();
 
-      // Start service monitoring
-      this.serviceManager.start();
+      // Start service monitoring (now async)
+      await this.serviceManager.start();
 
       this.logger.success('Application started successfully', 'app');
 

@@ -418,6 +418,34 @@ The application provides detailed logging with different levels:
 - **ERROR**: Errors and failed operations
 - **DEBUG**: Detailed debugging information
 
+### Startup Behavior
+
+The application now includes intelligent startup behavior to prevent state issues:
+
+#### **🔄 State Restoration on Startup**
+
+1. **Always Restores Original Configuration**: On startup, the application always restores the original configuration from the database, regardless of the previous state
+2. **Immediate Health Check**: Performs health checks on all services immediately after restoration
+3. **Smart State Determination**: Based on health check results, determines whether to use original or fallback configuration
+4. **Prevents False States**: Eliminates the issue where the app starts in a "failed" state from the previous session
+
+#### **📋 Startup Process**
+
+```
+1. 🔄 Restore original configuration to database and nginx
+2. 🏥 Perform immediate health checks on all services
+3. ✅ If healthy → Keep original configuration
+4. ⚠️ If unhealthy → Switch to fallback configuration
+5. 🚀 Start normal monitoring
+```
+
+#### **💡 Benefits**
+
+- **No False Failures**: App never starts in wrong state
+- **Immediate Validation**: Real health status determined on startup
+- **Consistent Behavior**: Always starts from known good state
+- **Automatic Recovery**: Handles both healthy and unhealthy scenarios
+
 ### Health Monitoring
 
 The Docker container includes health checks:
