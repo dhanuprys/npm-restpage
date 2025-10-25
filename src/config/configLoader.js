@@ -54,6 +54,11 @@ class ConfigLoader {
       this.config.backup_dir = './backups';
     }
 
+    // Set default snapshot_dir if not provided
+    if (!this.config.snapshot_dir) {
+      this.config.snapshot_dir = './snapshots';
+    }
+
     // Validate nginx_refresh_cmd if provided
     if (this.config.nginx_refresh_cmd && typeof this.config.nginx_refresh_cmd !== 'string') {
       throw new Error('nginx_refresh_cmd must be a string');
@@ -62,6 +67,26 @@ class ConfigLoader {
     // Validate backup_dir if provided
     if (this.config.backup_dir && typeof this.config.backup_dir !== 'string') {
       throw new Error('backup_dir must be a string');
+    }
+
+    // Validate snapshot_dir if provided
+    if (this.config.snapshot_dir && typeof this.config.snapshot_dir !== 'string') {
+      throw new Error('snapshot_dir must be a string');
+    }
+
+    // Validate snapshot_number if provided
+    if (this.config.snapshot_number !== undefined) {
+      if (typeof this.config.snapshot_number !== 'number' || this.config.snapshot_number < 1) {
+        throw new Error('snapshot_number must be a positive number');
+      }
+    }
+
+    // Validate force_snapshot if provided
+    if (
+      this.config.force_snapshot !== undefined &&
+      typeof this.config.force_snapshot !== 'boolean'
+    ) {
+      throw new Error('force_snapshot must be a boolean');
     }
 
     // Validate services

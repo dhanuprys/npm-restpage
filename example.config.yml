@@ -25,6 +25,12 @@ log_file: /var/log/host_switcher.log
 # backup_dir: /data/backups
 backup_dir: ./backups
 
+# snapshot_dir: /data/snapshots
+snapshot_dir: ./snapshots
+
+# snapshot_number: 3  # Use specific snapshot number (optional)
+# force_snapshot: true  # Force creation of new snapshot from current state (optional)
+
 # --- Service Definitions ---
 services:
   sso:

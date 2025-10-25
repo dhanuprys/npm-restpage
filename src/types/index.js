@@ -28,6 +28,9 @@
  * @property {string} log_file - Path to log file
  * @property {string} [nginx_refresh_cmd] - Command to reload Nginx configuration (optional, defaults to '/usr/sbin/nginx -s reload')
  * @property {string} [backup_dir] - Directory for storing proxy_host backups (optional, defaults to './backups')
+ * @property {string} [snapshot_dir] - Directory for snapshot files (optional, defaults to './snapshots')
+ * @property {number} [snapshot_number] - Specific snapshot number to use (optional)
+ * @property {boolean} [force_snapshot] - Force recreation of snapshot from current state (optional)
  * @property {Object.<string, ServiceConfig>} services - Service configurations
  */
 
@@ -48,6 +51,19 @@
  * @property {boolean} success - Whether the health check passed
  * @property {number} responseTime - Response time in milliseconds
  * @property {string} error - Error message if failed
+ * @property {number} attempts - Number of attempts made
+ */
+
+/**
+ * Snapshot configuration
+ * @typedef {Object} SnapshotConfig
+ * @property {number} id - Snapshot ID
+ * @property {string} timestamp - Creation timestamp
+ * @property {string} description - Snapshot description
+ * @property {Object.<string, Object>} services - Service configurations in snapshot
+ * @property {string} services[].host - Service host
+ * @property {number} services[].port - Service port
+ * @property {string} services[].scheme - Service scheme
  */
 
 module.exports = {};

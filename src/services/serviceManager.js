@@ -1,5 +1,6 @@
 const HealthChecker = require('./healthChecker');
 const NginxConfigUpdater = require('./nginxConfigUpdater');
+const SnapshotManager = require('./snapshotManager');
 const DatabaseManager = require('../database/databaseManager');
 
 /**
@@ -12,6 +13,7 @@ class ServiceManager {
     this.healthChecker = new HealthChecker(logger);
     this.nginxUpdater = new NginxConfigUpdater(config, logger);
     this.database = new DatabaseManager(config, logger);
+    this.snapshotManager = new SnapshotManager(logger, config);
 
     this.serviceStates = new Map(); // Track service states
     this.timers = new Map(); // Track interval timers
@@ -56,41 +58,46 @@ class ServiceManager {
   async initializeServiceStates() {
     this.logger.debug('Initializing Service Manager...', 'service-manager');
 
+    // Handle snapshot logic
+    const snapshotNumber = await this.handleSnapshotLogic();
+
     for (const [serviceName, serviceConfig] of Object.entries(this.config.services)) {
       this.logger.debug(`Initializing service: ${serviceName}`, 'service-manager');
 
-      // Get original configuration from database
-      const proxyHost = await this.database.findProxyHostByDomain(serviceConfig.domain);
-
       let originalConfig = null;
-      if (proxyHost) {
-        originalConfig = {
-          host: proxyHost.forward_host,
-          port: proxyHost.forward_port,
-          scheme: proxyHost.forward_scheme,
-        };
-        this.logger.debug(
-          `Found original config for ${serviceName}: ${originalConfig.scheme}://${originalConfig.host}:${originalConfig.port}`,
-          'service-manager'
-        );
 
-        // Backup initial proxy_host configuration
-        await this.database.backupInitialProxyHost(serviceName, proxyHost);
-
-        // CRITICAL: Always restore original configuration on startup
-        // This ensures we start from the original state, not the previous failed state
-        await this.restoreOriginalConfiguration(serviceName, originalConfig);
+      if (snapshotNumber > 0) {
+        // Use snapshot configuration
+        originalConfig = await this.loadConfigurationFromSnapshot(serviceName, snapshotNumber);
       } else {
-        this.logger.warn(
-          `No proxy host found for domain: ${serviceConfig.domain}`,
-          'service-manager'
-        );
+        // Use current database configuration
+        const proxyHost = await this.database.findProxyHostByDomain(serviceConfig.domain);
+
+        if (proxyHost) {
+          originalConfig = {
+            host: proxyHost.forward_host,
+            port: proxyHost.forward_port,
+            scheme: proxyHost.forward_scheme,
+          };
+          this.logger.debug(
+            `Found current config for ${serviceName}: ${originalConfig.scheme}://${originalConfig.host}:${originalConfig.port}`,
+            'service-manager'
+          );
+
+          // Backup initial proxy_host configuration
+          await this.database.backupInitialProxyHost(serviceName, proxyHost);
+        } else {
+          this.logger.warn(
+            `No proxy host found for domain: ${serviceConfig.domain}`,
+            'service-manager'
+          );
+        }
       }
 
       this.serviceStates.set(serviceName, {
         name: serviceName,
         config: serviceConfig,
-        originalConfig, // Store original config from database
+        originalConfig, // Store original config from snapshot or database
         isHealthy: false, // Will be determined by immediate health check
         lastCheck: null,
         consecutiveFailures: 0,
@@ -101,6 +108,101 @@ class ServiceManager {
 
       this.logger.debug(`Initialized service state: ${serviceName}`, 'service-manager');
     }
+  }
+
+  /**
+   * Handle snapshot logic - determine which snapshot to use or create new one
+   * @returns {Promise<number>} Snapshot number to use (0 = use current database state)
+   */
+  async handleSnapshotLogic() {
+    const { snapshot_number, force_snapshot } = this.config;
+
+    // If specific snapshot number is requested
+    if (snapshot_number) {
+      const exists = await this.snapshotManager.snapshotExists(snapshot_number);
+      if (!exists) {
+        throw new Error(`Snapshot ${snapshot_number} does not exist`);
+      }
+      this.logger.info(`📸 Using specified snapshot: ${snapshot_number}`, 'service-manager');
+      return snapshot_number;
+    }
+
+    // If force snapshot is enabled, create new snapshot from current state
+    if (force_snapshot) {
+      this.logger.info(
+        '📸 Force snapshot enabled - creating new snapshot from current state',
+        'service-manager'
+      );
+      return await this.createSnapshotFromCurrentState();
+    }
+
+    // Check if any snapshots exist
+    const latestSnapshot = await this.snapshotManager.getLatestSnapshotNumber();
+    if (latestSnapshot === 0) {
+      this.logger.info(
+        '📸 No snapshots exist - creating initial snapshot from current state',
+        'service-manager'
+      );
+      return await this.createSnapshotFromCurrentState();
+    }
+
+    // Use latest snapshot
+    this.logger.info(`📸 Using latest snapshot: ${latestSnapshot}`, 'service-manager');
+    return latestSnapshot;
+  }
+
+  /**
+   * Create snapshot from current database state
+   * @returns {Promise<number>} Snapshot number
+   */
+  async createSnapshotFromCurrentState() {
+    const services = {};
+
+    // Collect current configurations from database
+    for (const [serviceName, serviceConfig] of Object.entries(this.config.services)) {
+      const proxyHost = await this.database.findProxyHostByDomain(serviceConfig.domain);
+      if (proxyHost) {
+        services[serviceName] = {
+          host: proxyHost.forward_host,
+          port: proxyHost.forward_port,
+          scheme: proxyHost.forward_scheme,
+          domain: serviceConfig.domain,
+        };
+      }
+    }
+
+    const snapshotNumber = await this.snapshotManager.createSnapshot(
+      services,
+      'Initial snapshot from current database state'
+    );
+
+    return snapshotNumber;
+  }
+
+  /**
+   * Load configuration from snapshot for a specific service
+   * @param {string} serviceName - Name of the service
+   * @param {number} snapshotNumber - Snapshot number
+   * @returns {Promise<Object>} Service configuration from snapshot
+   */
+  async loadConfigurationFromSnapshot(serviceName, snapshotNumber) {
+    const snapshot = await this.snapshotManager.loadSnapshot(snapshotNumber);
+
+    if (!snapshot.services[serviceName]) {
+      throw new Error(`Service ${serviceName} not found in snapshot ${snapshotNumber}`);
+    }
+
+    const serviceConfig = snapshot.services[serviceName];
+    this.logger.debug(
+      `Loaded config for ${serviceName} from snapshot ${snapshotNumber}: ${serviceConfig.scheme}://${serviceConfig.host}:${serviceConfig.port}`,
+      'service-manager'
+    );
+
+    return {
+      host: serviceConfig.host,
+      port: serviceConfig.port,
+      scheme: serviceConfig.scheme,
+    };
   }
 
   /**
@@ -160,6 +262,9 @@ class ServiceManager {
     this.isRunning = true;
     this.logger.info('Starting service monitoring...', 'service-manager');
 
+    // Restore configurations to database and nginx
+    await this.restoreAllConfigurations();
+
     // Perform immediate health checks to determine correct state
     await this.performInitialHealthChecks();
 
@@ -167,6 +272,21 @@ class ServiceManager {
     for (const [serviceName, serviceState] of this.serviceStates) {
       this.startServiceMonitoring(serviceName, serviceState);
     }
+  }
+
+  /**
+   * Restore all service configurations to database and nginx
+   */
+  async restoreAllConfigurations() {
+    this.logger.info('🔄 Restoring all service configurations...', 'service-manager');
+
+    for (const [serviceName, serviceState] of this.serviceStates) {
+      if (serviceState.originalConfig) {
+        await this.restoreOriginalConfiguration(serviceName, serviceState.originalConfig);
+      }
+    }
+
+    this.logger.success('✅ All service configurations restored', 'service-manager');
   }
 
   /**

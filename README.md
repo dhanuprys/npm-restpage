@@ -145,6 +145,21 @@ Each service requires the following configuration:
 - `if_failed`: Fallback upstream server configuration when health check fails
 - `if_success`: **Optional** upstream server configuration when health check succeeds
 
+### Snapshot Configuration
+
+The application supports snapshot-based configuration management:
+
+- `snapshot_dir`: **Optional** directory for snapshot files (defaults to './snapshots')
+- `snapshot_number`: **Optional** specific snapshot number to use
+- `force_snapshot`: **Optional** force creation of new snapshot from current state (boolean)
+
+#### Snapshot Behavior
+
+1. **First Run**: Creates initial snapshot from current database state
+2. **Subsequent Runs**: Uses latest snapshot as the "UP" state
+3. **Custom Snapshot**: Use `snapshot_number` to specify a particular snapshot
+4. **Force Recreation**: Use `force_snapshot: true` to create new snapshot from current state
+
 #### Scheme Support
 
 Both `if_success` and `if_failed` configurations now support an optional `scheme` property:
@@ -422,9 +437,19 @@ The application provides detailed logging with different levels:
 
 The application now includes intelligent startup behavior to prevent state issues:
 
+#### **📸 Snapshot System**
+
+The application now includes a sophisticated snapshot system for managing service configurations:
+
+1. **Automatic Snapshot Creation**: Creates initial snapshot from current database state on first run
+2. **Snapshot-Based Restoration**: Uses snapshots as the "UP" state instead of current database state
+3. **Custom Snapshot Selection**: Option to use specific snapshot numbers
+4. **Force Snapshot Recreation**: Option to force creation of new snapshots from current state
+5. **Snapshot Management**: Command-line tools for listing, creating, and deleting snapshots
+
 #### **🔄 State Restoration on Startup**
 
-1. **Always Restores Original Configuration**: On startup, the application always restores the original configuration from the database, regardless of the previous state
+1. **Snapshot-Based Restoration**: Uses snapshots as the baseline "UP" state configuration
 2. **Immediate Health Check**: Performs health checks on all services immediately after restoration
 3. **Smart State Determination**: Based on health check results, determines whether to use original or fallback configuration
 4. **Prevents False States**: Eliminates the issue where the app starts in a "failed" state from the previous session
